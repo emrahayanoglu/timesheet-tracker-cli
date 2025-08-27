@@ -1,0 +1,13 @@
+timesheet-tracker (1.0.0-1) unstable; urgency=medium
+
+  * Initial release
+  * Features:
+    - Start and stop work sessions
+    - Add work sessions for specific dates
+    - Add work sessions using duration format (5h 30m)
+    - Delete work sessions
+    - List and summarize work sessions
+    - Generate PDF reports
+    - Persistent data storage
+
+ -- Your Name <your.email@example.com>  Tue, 26 Aug 2025 17:00:00 +0000

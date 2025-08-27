@@ -1,0 +1,11 @@
+README.md
+requirements.txt
+*.pyc
+__pycache__/
+.git/
+.venv/
+*.pdf
+timesheet_data.json
+build/
+dist/
+*.egg-info/

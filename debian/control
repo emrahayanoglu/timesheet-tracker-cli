@@ -1,0 +1,26 @@
+Source: timesheet-tracker
+Section: utils
+Priority: optional
+Maintainer: Your Name <your.email@example.com>
+Build-Depends: debhelper-compat (= 13), python3-all, python3-setuptools, dh-python
+Standards-Version: 4.6.0
+Homepage: https://github.com/yourusername/timesheet-tracker
+Vcs-Git: https://github.com/yourusername/timesheet-tracker.git
+Vcs-Browser: https://github.com/yourusername/timesheet-tracker
+
+Package: timesheet-tracker
+Architecture: all
+Depends: ${python3:Depends}, ${misc:Depends}, python3-click, python3-reportlab, python3-dateutil
+Description: Simple CLI tool for tracking working time
+ A command-line tool for tracking working time and generating monthly PDF reports.
+ .
+ Features:
+  * Start and stop work sessions
+  * Track time with descriptions
+  * Add work sessions retroactively
+  * Add work sessions using duration format (5h 30m)
+  * Delete incorrect work sessions
+  * View work session history
+  * Generate monthly summaries
+  * Export monthly PDF reports
+  * Persistent data storage

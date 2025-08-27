@@ -1,0 +1,16 @@
+#!/bin/bash
+
+set -e
+
+case "$1" in
+    remove|purge)
+        # Remove symlink
+        if [ -L /usr/local/bin/timesheet ]; then
+            rm -f /usr/local/bin/timesheet
+        fi
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

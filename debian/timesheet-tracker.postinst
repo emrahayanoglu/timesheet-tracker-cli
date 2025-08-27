@@ -1,0 +1,27 @@
+#!/bin/bash
+
+set -e
+
+case "$1" in
+    configure)
+        # Create symlink for easier command access
+        if [ ! -e /usr/local/bin/timesheet ]; then
+            ln -sf /usr/bin/timesheet-tracker /usr/local/bin/timesheet
+        fi
+        
+        echo "Timesheet Tracker installed successfully!"
+        echo ""
+        echo "Usage:"
+        echo "  timesheet-tracker --help     # Show all commands"
+        echo "  timesheet start              # Start work session"
+        echo "  timesheet stop               # Stop work session"
+        echo "  timesheet list               # List work sessions"
+        echo "  timesheet summary            # Monthly summary"
+        echo ""
+        echo "You can also use the 'timesheet' command directly."
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

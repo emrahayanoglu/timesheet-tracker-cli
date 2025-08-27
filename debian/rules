@@ -1,0 +1,27 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -rf build/
+	rm -rf *.egg-info/
+
+override_dh_auto_build:
+	python3 setup.py build
+
+override_dh_auto_test:
+	# Skip tests for now - can be added later
+
+override_dh_auto_install:
+	python3 setup.py install --root=debian/timesheet-tracker --prefix=/usr
+	
+	# Create a proper CLI wrapper
+	install -d debian/timesheet-tracker/usr/bin
+	echo '#!/usr/bin/env python3' > debian/timesheet-tracker/usr/bin/timesheet-tracker
+	echo 'import sys' >> debian/timesheet-tracker/usr/bin/timesheet-tracker
+	echo 'from cli import cli' >> debian/timesheet-tracker/usr/bin/timesheet-tracker
+	echo 'if __name__ == "__main__":' >> debian/timesheet-tracker/usr/bin/timesheet-tracker
+	echo '    cli()' >> debian/timesheet-tracker/usr/bin/timesheet-tracker
+	chmod +x debian/timesheet-tracker/usr/bin/timesheet-tracker
