@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Entries - Timesheet Tracker{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-list me-2"></i>Time Entries
+            </h1>
+            <a href="{{ url_for('add_entry') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Add Entry
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Info -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            Showing {{ entries_with_ids|length }} of {{ total_entries }} entries
+            {% if total_pages > 1 %}
+                (Page {{ page }} of {{ total_pages }})
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Entries List -->
+<div class="row">
+    <div class="col-12">
+        {% if entries_with_ids %}
+            {% for entry_id, entry in entries_with_ids %}
+                <div class="card entry-card mb-3" data-entry-id="{{ entry_id }}">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-3">
+                                <h6 class="mb-1">
+                                    <i class="fas fa-calendar me-2"></i>
+                                    {{ entry.start_time.strftime('%Y-%m-%d') }}
+                                </h6>
+                                <small class="text-muted">
+                                    {{ entry.start_time.strftime('%A') }}
+                                </small>
+                            </div>
+                            <div class="col-md-3">
+                                <span class="time-badge badge bg-secondary">
+                                    <i class="fas fa-clock me-1"></i>
+                                    {{ entry.start_time.strftime('%H:%M') }} - 
+                                    {{ entry.end_time.strftime('%H:%M') if entry.end_time else 'N/A' }}
+                                </span>
+                            </div>
+                            <div class="col-md-2">
+                                <span class="duration-badge badge bg-primary">
+                                    {{ "%.2f"|format(entry.duration_hours()) }}h
+                                </span>
+                                <br>
+                                <small class="text-muted">
+                                    {{ entry.duration_minutes() }} min
+                                </small>
+                            </div>
+                            <div class="col-md-2">
+                                {% if entry.description %}
+                                    <p class="mb-0">
+                                        <i class="fas fa-sticky-note me-1"></i>
+                                        {{ entry.description }}
+                                    </p>
+                                {% else %}
+                                    <small class="text-muted">No description</small>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-2 text-end">
+                                <div class="btn-group" role="group">
+                                    <a href="{{ url_for('edit_entry_page', entry_id=entry_id) }}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-outline-danger" 
+                                            onclick="deleteEntryById({{ entry_id }}, '{{ entry.start_time.strftime('%Y-%m-%d %H:%M') }}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-clipboard-list fa-4x text-muted mb-3"></i>
+                <h4 class="text-muted">No time entries found</h4>
+                <p class="text-muted">Start tracking your time by adding your first entry.</p>
+                <a href="{{ url_for('add_entry') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Add Your First Entry
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if total_pages > 1 %}
+<div class="row mt-4">
+    <div class="col-12">
+        <nav aria-label="Entries pagination">
+            <ul class="pagination justify-content-center">
+                {% if has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('entries', page=page-1) }}">
+                            <i class="fas fa-chevron-left"></i> Previous
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            <i class="fas fa-chevron-left"></i> Previous
+                        </span>
+                    </li>
+                {% endif %}
+                
+                {% for p in range(1, total_pages + 1) %}
+                    {% if p == page %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ p }}</span>
+                        </li>
+                    {% elif p <= 3 or p >= total_pages - 2 or (p >= page - 1 and p <= page + 1) %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('entries', page=p) }}">{{ p }}</a>
+                        </li>
+                    {% elif p == 4 or p == total_pages - 3 %}
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('entries', page=page+1) }}">
+                            Next <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            Next <i class="fas fa-chevron-right"></i>
+                        </span>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function deleteEntryById(entryId, timeInfo) {
+    if (confirm(`Are you sure you want to delete the entry from ${timeInfo}?`)) {
+        fetch(`/api/entry/${entryId}/delete`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+                // Remove the card from the DOM
+                const card = document.querySelector(`[data-entry-id="${entryId}"]`);
+                if (card) {
+                    card.remove();
+                }
+                // Optionally reload the page to update pagination
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showAlert(data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            showAlert('Error deleting entry: ' + error.message, 'danger');
+        });
+    }
+}
+</script>
+{% endblock %}

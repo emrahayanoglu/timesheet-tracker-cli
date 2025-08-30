@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Entry - Timesheet Tracker{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-edit me-2"></i>Edit Time Entry
+        </h1>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-edit me-2"></i>Edit Entry - {{ entry.start_time.strftime('%Y-%m-%d') }}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="editEntryForm">
+                    <!-- Date -->
+                    <div class="mb-3">
+                        <label for="entryDate" class="form-label">
+                            <i class="fas fa-calendar me-1"></i>Date *
+                        </label>
+                        <input type="date" class="form-control" id="entryDate" required
+                               max="{{ today }}"
+                               value="{{ entry.start_time.strftime('%Y-%m-%d') }}">
+                    </div>
+
+                    <!-- Time Range Fields -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="startTime" class="form-label">
+                                <i class="fas fa-play me-1"></i>Start Time *
+                            </label>
+                            <input type="time" class="form-control" id="startTime" required
+                                   value="{{ entry.start_time.strftime('%H:%M') }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="endTime" class="form-label">
+                                <i class="fas fa-stop me-1"></i>End Time *
+                            </label>
+                            <input type="time" class="form-control" id="endTime" required
+                                   value="{{ entry.end_time.strftime('%H:%M') if entry.end_time else '' }}">
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="mb-3">
+                        <label for="description" class="form-label">
+                            <i class="fas fa-sticky-note me-1"></i>Description
+                        </label>
+                        <textarea class="form-control" id="description" rows="3"
+                                  placeholder="What did you work on? (optional)">{{ entry.description }}</textarea>
+                    </div>
+
+                    <!-- Current Duration Display -->
+                    <div class="mb-3">
+                        <div class="alert alert-info">
+                            <i class="fas fa-clock me-2"></i>
+                            <strong>Current Duration:</strong> 
+                            <span id="currentDuration">{{ "%.2f"|format(entry.duration_hours()) }} hours ({{ entry.duration_minutes() }} minutes)</span>
+                        </div>
+                    </div>
+
+                    <!-- Quick Duration Buttons -->
+                    <div class="mb-3">
+                        <label class="form-label">Quick Duration Adjustments</label>
+                        <div class="btn-group d-flex flex-wrap gap-2" role="group">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                    onclick="setDurationFromStart('4h')">4h</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                    onclick="setDurationFromStart('6h')">6h</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                    onclick="setDurationFromStart('8h')">8h</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                    onclick="setDurationFromStart('4h 30m')">4.5h</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                    onclick="setDurationFromStart('7h 30m')">7.5h</button>
+                        </div>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('entries') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Entries
+                        </a>
+                        <div>
+                            <button type="button" class="btn btn-outline-danger me-2" onclick="deleteCurrentEntry()">
+                                <i class="fas fa-trash me-2"></i>Delete Entry
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Update Entry
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const entryId = {{ entry_id }};
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle form submission
+    document.getElementById('editEntryForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        updateEntry();
+    });
+    
+    // Update duration display when times change
+    document.getElementById('startTime').addEventListener('change', updateDurationDisplay);
+    document.getElementById('endTime').addEventListener('change', updateDurationDisplay);
+});
+
+function updateDurationDisplay() {
+    const startTime = document.getElementById('startTime').value;
+    const endTime = document.getElementById('endTime').value;
+    
+    if (startTime && endTime) {
+        const start = new Date(`2000-01-01T${startTime}:00`);
+        const end = new Date(`2000-01-01T${endTime}:00`);
+        
+        // Handle next day case
+        if (end <= start) {
+            end.setDate(end.getDate() + 1);
+        }
+        
+        const diffMs = end - start;
+        const diffHours = diffMs / (1000 * 60 * 60);
+        const diffMinutes = Math.round(diffMs / (1000 * 60));
+        
+        document.getElementById('currentDuration').textContent = 
+            `${diffHours.toFixed(2)} hours (${diffMinutes} minutes)`;
+    }
+}
+
+function setDurationFromStart(durationStr) {
+    const startTimeInput = document.getElementById('startTime');
+    const endTimeInput = document.getElementById('endTime');
+    
+    if (!startTimeInput.value) {
+        showAlert('Please set a start time first', 'warning');
+        return;
+    }
+    
+    // Parse duration
+    const hours = durationStr.includes('h') ? parseInt(durationStr.match(/(\d+)h/)[1]) : 0;
+    const minutes = durationStr.includes('m') ? parseInt(durationStr.match(/(\d+)m/)[1]) : 0;
+    
+    // Calculate end time
+    const startTime = new Date(`2000-01-01T${startTimeInput.value}:00`);
+    startTime.setHours(startTime.getHours() + hours);
+    startTime.setMinutes(startTime.getMinutes() + minutes);
+    
+    // Format and set end time
+    const endTimeStr = startTime.toTimeString().slice(0, 5);
+    endTimeInput.value = endTimeStr;
+    
+    // Update duration display
+    updateDurationDisplay();
+}
+
+function updateEntry() {
+    const data = {
+        date: document.getElementById('entryDate').value,
+        start_time: document.getElementById('startTime').value,
+        end_time: document.getElementById('endTime').value,
+        description: document.getElementById('description').value
+    };
+    
+    // Validate required fields
+    if (!data.date || !data.start_time || !data.end_time) {
+        showAlert('Date, start time, and end time are required', 'danger');
+        return;
+    }
+    
+    // Show loading state
+    const submitBtn = document.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Updating...';
+    submitBtn.disabled = true;
+    
+    fetch(`/api/entry/${entryId}/update`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert(data.message, 'success');
+            setTimeout(() => {
+                window.location.href = '/entries';
+            }, 1500);
+        } else {
+            showAlert(data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        showAlert('Error updating entry: ' + error.message, 'danger');
+    })
+    .finally(() => {
+        // Restore button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+}
+
+function deleteCurrentEntry() {
+    if (confirm('Are you sure you want to delete this entry? This action cannot be undone.')) {
+        fetch(`/api/entry/${entryId}/delete`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+                setTimeout(() => {
+                    window.location.href = '/entries';
+                }, 1000);
+            } else {
+                showAlert(data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            showAlert('Error deleting entry: ' + error.message, 'danger');
+        });
+    }
+}
+</script>
+{% endblock %}

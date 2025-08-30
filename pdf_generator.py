@@ -6,7 +6,12 @@ from reportlab.lib.units import inch
 from datetime import datetime, date
 import calendar
 from typing import List
-from timesheet import TimeEntry, TimesheetManager
+
+# Import both timesheet managers for compatibility
+try:
+    from timesheet_sqlite import TimesheetManager, TimeEntry
+except ImportError:
+    from timesheet import TimesheetManager, TimeEntry
 
 class PDFGenerator:
     def __init__(self):
