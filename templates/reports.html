@@ -243,10 +243,12 @@ const weeklyCtx = document.getElementById('weeklyChart').getContext('2d');
 // Calculate weekly totals
 const weekly = [0, 0, 0, 0, 0]; // Week 1-5
 {% for entry in entries %}
-    const day{{ loop.index }} = {{ entry.start_time.day }};
-    const weekIndex{{ loop.index }} = Math.floor((day{{ loop.index }} - 1) / 7);
-    if (weekIndex{{ loop.index }} < 5) {
-        weekly[weekIndex{{ loop.index }}] += {{ entry.duration_hours() }};
+    {
+        const day = {{ entry.start_time.day }};
+        const weekIndex = Math.floor((day - 1) / 7);
+        if (weekIndex < 5) {
+            weekly[weekIndex] += {{ entry.duration_hours() }};
+        }
     }
 {% endfor %}
 
