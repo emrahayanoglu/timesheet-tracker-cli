@@ -1,0 +1,476 @@
+{% extends "base.html" %}
+
+{% block title %}Calendar - Timesheet Tracker{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-calendar me-2"></i>Calendar View
+            </h1>
+            <div class="btn-group">
+                <a href="{{ url_for('calendar_view', year=prev_year, month=prev_month) }}" 
+                   class="btn btn-outline-primary">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+                <button class="btn btn-primary" disabled>
+                    {{ month_name }} {{ year }}
+                </button>
+                <a href="{{ url_for('calendar_view', year=next_year, month=next_month) }}" 
+                   class="btn btn-outline-primary">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+                {% if year != current_year or month != current_month %}
+                <a href="{{ url_for('calendar_view') }}" class="btn btn-outline-secondary ms-2">
+                    <i class="fas fa-home me-1"></i>Today
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Month Summary Stats -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-2">
+        <div class="card bg-primary text-white h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-clock fa-2x mb-2"></i>
+                <h4>{{ "%.1f"|format(total_hours) }}h</h4>
+                <small>Total Hours</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-2">
+        <div class="card bg-success text-white h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-calendar-check fa-2x mb-2"></i>
+                <h4>{{ working_days }}</h4>
+                <small>Working Days</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-2">
+        <div class="card bg-info text-white h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-chart-line fa-2x mb-2"></i>
+                <h4>{{ "%.1f"|format(avg_hours_per_day) }}h</h4>
+                <small>Avg per Day</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-2">
+        <div class="card bg-warning text-white h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-trophy fa-2x mb-2"></i>
+                <h4>
+                    {% if most_productive_day %}
+                        {{ most_productive_day[0] }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </h4>
+                <small>
+                    {% if most_productive_day %}
+                        Most Productive ({{ "%.1f"|format(most_productive_day[1]) }}h)
+                    {% else %}
+                        No Data
+                    {% endif %}
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Calendar -->
+<div class="row">
+    <div class="col-12">
+        <div class="card calendar-card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bordered calendar-table mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th class="text-center calendar-header">Monday</th>
+                                <th class="text-center calendar-header">Tuesday</th>
+                                <th class="text-center calendar-header">Wednesday</th>
+                                <th class="text-center calendar-header">Thursday</th>
+                                <th class="text-center calendar-header">Friday</th>
+                                <th class="text-center calendar-header">Saturday</th>
+                                <th class="text-center calendar-header">Sunday</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for week in calendar_weeks %}
+                                {% set week_index = loop.index0 %}
+                                <tr class="calendar-week">
+                                    {% for day in week %}
+                                        <td class="calendar-day 
+                                                   {% if day == 0 %}empty-day{% endif %}
+                                                   {% if day == current_day and month == current_month and year == current_year %}today{% endif %}
+                                                   {% if day in daily_summary %}working-day{% endif %}"
+                                            {% if day != 0 %}data-day="{{ day }}"{% endif %}>
+                                            
+                                            {% if day != 0 %}
+                                                <!-- Day header with number and hours -->
+                                                <div class="day-header d-flex justify-content-between align-items-start mb-2">
+                                                    <span class="day-number 
+                                                                {% if day == current_day and month == current_month and year == current_year %}today-number{% endif %}">
+                                                        {{ day }}
+                                                    </span>
+                                                    {% if day in daily_summary %}
+                                                        <span class="badge hours-badge 
+                                                                    {% if daily_summary[day] >= 8 %}bg-success{% elif daily_summary[day] >= 6 %}bg-warning{% else %}bg-secondary{% endif %}">
+                                                            {{ "%.1f"|format(daily_summary[day]) }}h
+                                                        </span>
+                                                    {% endif %}
+                                                </div>
+                                                
+                                                <!-- Daily details -->
+                                                {% if day in daily_details %}
+                                                    <div class="day-content">
+                                                        <!-- Time range -->
+                                                        {% if daily_details[day]['earliest_start'] and daily_details[day]['latest_end'] %}
+                                                            <div class="time-range mb-1">
+                                                                <small class="text-muted">
+                                                                    <i class="fas fa-clock me-1"></i>
+                                                                    {{ daily_details[day]['earliest_start'].strftime('%H:%M') }} - 
+                                                                    {{ daily_details[day]['latest_end'].strftime('%H:%M') }}
+                                                                </small>
+                                                            </div>
+                                                        {% endif %}
+                                                        
+                                                        <!-- Entry count -->
+                                                        {% if daily_details[day]['entries_count'] > 1 %}
+                                                            <div class="entry-count mb-1">
+                                                                <small class="text-info">
+                                                                    <i class="fas fa-list me-1"></i>
+                                                                    {{ daily_details[day]['entries_count'] }} entries
+                                                                </small>
+                                                            </div>
+                                                        {% endif %}
+                                                        
+                                                        <!-- First description preview -->
+                                                        {% if daily_details[day]['descriptions'] %}
+                                                            <div class="description-preview">
+                                                                <small class="text-muted description-text" 
+                                                                       title="{{ daily_details[day]['descriptions'][0] }}">
+                                                                    {{ daily_details[day]['descriptions'][0][:25] }}{% if daily_details[day]['descriptions'][0]|length > 25 %}...{% endif %}
+                                                                </small>
+                                                                {% if daily_details[day]['descriptions']|length > 1 %}
+                                                                    <small class="text-muted">
+                                                                        <br>+{{ daily_details[day]['descriptions']|length - 1 }} more
+                                                                    </small>
+                                                                {% endif %}
+                                                            </div>
+                                                        {% endif %}
+                                                    </div>
+                                                {% endif %}
+                                                
+                                                <!-- Click for details -->
+                                                {% if day in entries_by_date %}
+                                                    <div class="day-actions mt-2">
+                                                        <button class="btn btn-sm btn-outline-primary day-details-btn" 
+                                                                onclick="showDayDetails({{ day }}, '{{ year }}-{{ "%02d"|format(month) }}-{{ "%02d"|format(day) }}')">
+                                                            <i class="fas fa-eye"></i>
+                                                        </button>
+                                                    </div>
+                                                {% endif %}
+                                            {% endif %}
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                                
+                                <!-- Week total row -->
+                                {% if week_totals and week_totals[week_index] > 0 %}
+                                <tr class="week-total-row">
+                                    <td colspan="7" class="text-center week-total">
+                                        <small class="text-muted">
+                                            <i class="fas fa-calendar-week me-1"></i>
+                                            Week {{ week_index + 1 }}: {{ "%.1f"|format(week_totals[week_index]) }} hours
+                                        </small>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-plus me-2"></i>Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('add_entry') }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Add New Entry
+                    </a>
+                    <a href="{{ url_for('reports', year=year, month=month) }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-file-pdf me-2"></i>Generate Report
+                    </a>
+                    <a href="{{ url_for('entries') }}" class="btn btn-outline-info">
+                        <i class="fas fa-list me-2"></i>View All Entries
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>Legend
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <div class="legend-item mb-2">
+                            <span class="badge bg-success me-2">8.0h</span>
+                            <small>Full day (8+ hours)</small>
+                        </div>
+                        <div class="legend-item mb-2">
+                            <span class="badge bg-warning me-2">6.0h</span>
+                            <small>Partial day (6-8 hours)</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="legend-item mb-2">
+                            <span class="badge bg-secondary me-2">4.0h</span>
+                            <small>Short day (&lt;6 hours)</small>
+                        </div>
+                        <div class="legend-item mb-2">
+                            <span class="day-number today-number me-2">{{ current_day }}</span>
+                            <small>Today</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Day Details Modal -->
+<div class="modal fade" id="dayDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-calendar-day me-2"></i>
+                    <span id="modalDayTitle">Day Details</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalDayContent">
+                <!-- Dynamic content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <a href="#" id="modalAddEntry" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Add Entry for This Day
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.calendar-card {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.calendar-table {
+    font-size: 0.9rem;
+}
+
+.calendar-header {
+    padding: 12px 8px;
+    font-weight: 600;
+}
+
+.calendar-day {
+    width: 14.28%;
+    height: 120px;
+    padding: 8px;
+    vertical-align: top;
+    position: relative;
+}
+
+.empty-day {
+    background-color: #f8f9fa;
+}
+
+.working-day {
+    background-color: #f0f8ff;
+    border-left: 3px solid #007bff;
+}
+
+.today {
+    background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+    border: 2px solid #ffc107;
+}
+
+.day-number {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #495057;
+}
+
+.today-number {
+    color: #856404;
+    background: #fff3cd;
+    padding: 2px 6px;
+    border-radius: 50%;
+    font-weight: bold;
+}
+
+.hours-badge {
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.day-content {
+    font-size: 0.8rem;
+}
+
+.time-range {
+    background: rgba(0, 123, 255, 0.1);
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.description-text {
+    font-style: italic;
+    line-height: 1.2;
+}
+
+.day-details-btn {
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.calendar-day:hover .day-details-btn {
+    opacity: 1;
+}
+
+.week-total-row {
+    background: #f8f9fa;
+}
+
+.week-total {
+    padding: 4px;
+    border-top: 1px solid #dee2e6;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+}
+
+@media (max-width: 768px) {
+    .calendar-table {
+        font-size: 0.7rem;
+    }
+    
+    .calendar-day {
+        height: 100px;
+        padding: 4px;
+    }
+    
+    .day-content {
+        font-size: 0.7rem;
+    }
+}
+</style>
+
+<script>
+function showDayDetails(day, dateStr) {
+    const modalTitle = document.getElementById('modalDayTitle');
+    const modalContent = document.getElementById('modalDayContent');
+    const modalAddEntry = document.getElementById('modalAddEntry');
+    
+    modalTitle.textContent = `Details for ${dateStr}`;
+    modalContent.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+    
+    // Update the "Add Entry" button link
+    modalAddEntry.href = `/add_entry?date=${dateStr}`;
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('dayDetailsModal'));
+    modal.show();
+    
+    // Fetch day details via AJAX
+    fetch(`/api/day-details/${dateStr}`)
+        .then(response => response.json())
+        .then(data => {
+            let content = '';
+            
+            if (data.entries && data.entries.length > 0) {
+                content += '<div class="table-responsive">';
+                content += '<table class="table table-sm">';
+                content += '<thead><tr><th>Start</th><th>End</th><th>Duration</th><th>Description</th><th>Actions</th></tr></thead>';
+                content += '<tbody>';
+                
+                data.entries.forEach(entry => {
+                    const startTime = new Date(entry.start_time).toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute: '2-digit'});
+                    const endTime = entry.end_time ? new Date(entry.end_time).toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute: '2-digit'}) : 'Active';
+                    const duration = entry.duration_hours ? `${entry.duration_hours.toFixed(2)}h` : 'Ongoing';
+                    
+                    content += `<tr>
+                        <td>${startTime}</td>
+                        <td>${endTime}</td>
+                        <td>${duration}</td>
+                        <td>${entry.description || 'No description'}</td>
+                        <td>
+                            <a href="/edit_entry/${entry.id}" class="btn btn-sm btn-outline-primary" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </td>
+                    </tr>`;
+                });
+                
+                content += '</tbody></table></div>';
+                
+                // Add summary
+                content += `<div class="mt-3 p-3 bg-light rounded">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <strong>Total Hours:</strong> ${data.total_hours.toFixed(2)}h
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Entries:</strong> ${data.entries.length}
+                        </div>
+                        <div class="col-md-4">
+                            <strong>First Entry:</strong> ${data.entries[0] ? new Date(data.entries[0].start_time).toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute: '2-digit'}) : 'N/A'}
+                        </div>
+                    </div>
+                </div>`;
+            } else {
+                content = '<div class="text-center text-muted p-4">';
+                content += '<i class="fas fa-calendar-times fa-3x mb-3"></i>';
+                content += '<h5>No entries for this day</h5>';
+                content += '<p>Click "Add Entry for This Day" to get started.</p>';
+                content += '</div>';
+            }
+            
+            modalContent.innerHTML = content;
+        })
+        .catch(error => {
+            modalContent.innerHTML = '<div class="alert alert-danger">Error loading day details. Please try again.</div>';
+            console.error('Error fetching day details:', error);
+        });
+}
+</script>
+{% endblock %}

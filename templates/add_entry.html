@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block title %}Add Entry - Timesheet Tracker{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-plus me-2"></i>Add Time Entry
+        </h1>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-edit me-2"></i>New Time Entry
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="addEntryForm">
+                    <!-- Date -->
+                    <div class="mb-3">
+                        <label for="entryDate" class="form-label">
+                            <i class="fas fa-calendar me-1"></i>Date *
+                        </label>
+                        <input type="date" class="form-control" id="entryDate" required
+                               max="{{ today }}"
+                               value="{{ today }}">
+                    </div>
+
+                    <!-- Entry Type Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Entry Type</label>
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="entryType" 
+                                           id="typeTimeRange" value="time_range" checked>
+                                    <label class="form-check-label" for="typeTimeRange">
+                                        <i class="fas fa-clock me-1"></i>
+                                        Time Range (Start - End)
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="entryType" 
+                                           id="typeDuration" value="duration">
+                                    <label class="form-check-label" for="typeDuration">
+                                        <i class="fas fa-hourglass-half me-1"></i>
+                                        Duration (e.g., 5h 30m)
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Time Range Fields -->
+                    <div id="timeRangeFields">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="startTime" class="form-label">
+                                    <i class="fas fa-play me-1"></i>Start Time *
+                                </label>
+                                <input type="time" class="form-control" id="startTime" required
+                                       value="09:00">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="endTime" class="form-label">
+                                    <i class="fas fa-stop me-1"></i>End Time *
+                                </label>
+                                <input type="time" class="form-control" id="endTime" required
+                                       value="17:00">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Duration Fields -->
+                    <div id="durationFields" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="startTimeDuration" class="form-label">
+                                    <i class="fas fa-play me-1"></i>Start Time
+                                </label>
+                                <input type="time" class="form-control" id="startTimeDuration"
+                                       value="09:00">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="duration" class="form-label">
+                                    <i class="fas fa-hourglass-half me-1"></i>Duration *
+                                </label>
+                                <input type="text" class="form-control" id="duration"
+                                       placeholder="e.g., 8h, 5h 30m, 45m">
+                                <div class="form-text">
+                                    Format: 8h, 5h 30m, 45m, etc.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="mb-3">
+                        <label for="description" class="form-label">
+                            <i class="fas fa-sticky-note me-1"></i>Description
+                        </label>
+                        <textarea class="form-control" id="description" rows="3"
+                                  placeholder="What did you work on? (optional)"></textarea>
+                    </div>
+
+                    <!-- Quick Duration Buttons -->
+                    <div class="mb-3">
+                        <label class="form-label">Quick Duration</label>
+                        <div class="btn-group d-flex flex-wrap gap-2" role="group">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                    onclick="setQuickDuration('4h')">4h</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                    onclick="setQuickDuration('6h')">6h</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                    onclick="setQuickDuration('8h')">8h</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                    onclick="setQuickDuration('4h 30m')">4.5h</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                    onclick="setQuickDuration('7h 30m')">7.5h</button>
+                        </div>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('entries') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Entries
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Add Entry
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const entryTypeRadios = document.querySelectorAll('input[name="entryType"]');
+    const timeRangeFields = document.getElementById('timeRangeFields');
+    const durationFields = document.getElementById('durationFields');
+    
+    // Handle entry type changes
+    entryTypeRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'time_range') {
+                timeRangeFields.style.display = 'block';
+                durationFields.style.display = 'none';
+                document.getElementById('startTime').required = true;
+                document.getElementById('endTime').required = true;
+                document.getElementById('duration').required = false;
+            } else {
+                timeRangeFields.style.display = 'none';
+                durationFields.style.display = 'block';
+                document.getElementById('startTime').required = false;
+                document.getElementById('endTime').required = false;
+                document.getElementById('duration').required = true;
+            }
+        });
+    });
+    
+    // Handle form submission
+    document.getElementById('addEntryForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        addEntry();
+    });
+});
+
+function setQuickDuration(duration) {
+    // Switch to duration mode
+    document.getElementById('typeDuration').checked = true;
+    document.getElementById('typeDuration').dispatchEvent(new Event('change'));
+    
+    // Set the duration
+    document.getElementById('duration').value = duration;
+}
+
+function addEntry() {
+    const form = document.getElementById('addEntryForm');
+    const formData = new FormData(form);
+    
+    const entryType = document.querySelector('input[name="entryType"]:checked').value;
+    const data = {
+        date: document.getElementById('entryDate').value,
+        description: document.getElementById('description').value
+    };
+    
+    if (entryType === 'time_range') {
+        data.start_time = document.getElementById('startTime').value;
+        data.end_time = document.getElementById('endTime').value;
+    } else {
+        data.start_time = document.getElementById('startTimeDuration').value;
+        data.duration = document.getElementById('duration').value;
+    }
+    
+    // Validate required fields
+    if (!data.date) {
+        showAlert('Date is required', 'danger');
+        return;
+    }
+    
+    if (entryType === 'time_range') {
+        if (!data.start_time || !data.end_time) {
+            showAlert('Start time and end time are required', 'danger');
+            return;
+        }
+    } else {
+        if (!data.duration) {
+            showAlert('Duration is required', 'danger');
+            return;
+        }
+    }
+    
+    // Submit the entry
+    fetch('/api/entry/add', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert(data.message, 'success');
+            setTimeout(() => {
+                window.location.href = '/entries';
+            }, 1500);
+        } else {
+            showAlert(data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        showAlert('Error adding entry: ' + error.message, 'danger');
+    });
+}
+</script>
+{% endblock %}

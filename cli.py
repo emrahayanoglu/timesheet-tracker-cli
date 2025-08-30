@@ -2,8 +2,10 @@
 import click
 from datetime import datetime, date, time, timedelta
 import calendar
-from timesheet import TimesheetManager
-from pdf_generator import PDFGenerator
+from timesheet_sqlite import TimesheetManager
+import subprocess
+import sys
+import os
 
 @click.group()
 def cli():
@@ -138,6 +140,7 @@ def report(month, year, output):
         output = f"timesheet_{month_name}_{year}.pdf"
     
     try:
+        from pdf_generator import PDFGenerator
         generator = PDFGenerator()
         generator.generate_monthly_report(manager, year, month, output)
         
@@ -149,6 +152,8 @@ def report(month, year, output):
         click.echo(f"   Total hours: {total_hours:.2f}")
         click.echo(f"   Total entries: {len(entries)}")
         
+    except ImportError:
+        click.echo("❌ PDF generation requires reportlab. Install with: pip install reportlab")
     except Exception as e:
         click.echo(f"❌ Error generating PDF: {str(e)}")
 
@@ -304,6 +309,90 @@ def delete(index, confirm):
         click.echo("❌ Failed to delete work session")
 
 @cli.command()
+@click.option('--index', '-i', type=int, help='Index of the entry to edit (see with "list" command)')
+def edit(index):
+    """Edit an existing work session"""
+    manager = TimesheetManager()
+    
+    if not manager.entries:
+        click.echo("❌ No work sessions to edit")
+        return
+    
+    # If no index provided, show list and ask for index
+    if index is None:
+        click.echo("\n📋 Current work sessions:")
+        entries_with_index = manager.get_entries_with_index()
+        
+        # Show entries in chronological order with absolute indices
+        for idx, entry in sorted(entries_with_index, key=lambda x: x[1].start_time):
+            start_date = entry.start_time.strftime('%Y-%m-%d')
+            start_time = entry.start_time.strftime('%H:%M')
+            end_time = entry.end_time.strftime('%H:%M') if entry.end_time else 'N/A'
+            duration = f"{entry.duration_hours():.2f}h"
+            
+            click.echo(f"{idx:2d}. {start_date} {start_time} - {end_time} ({duration})")
+            if entry.description:
+                click.echo(f"     📝 {entry.description}")
+        
+        click.echo(f"\nTotal entries: {len(manager.entries)}")
+        try:
+            index = click.prompt("Enter the index to edit", type=int)
+        except click.Abort:
+            click.echo("Cancelled")
+            return
+    
+    # Validate index
+    entries_with_ids = manager.get_entries_with_ids()
+    if not (1 <= index <= len(entries_with_ids)):
+        click.echo(f"❌ Invalid index. Must be between 1 and {len(entries_with_ids)}")
+        return
+    
+    # Get the entry to edit
+    sorted_entries = sorted(entries_with_ids, key=lambda x: x[1].start_time)
+    entry_id, entry_to_edit = sorted_entries[index - 1]
+    
+    click.echo(f"\n✏️  Editing entry:")
+    click.echo(f"   Date: {entry_to_edit.start_time.strftime('%Y-%m-%d')}")
+    click.echo(f"   Time: {entry_to_edit.start_time.strftime('%H:%M')} - {entry_to_edit.end_time.strftime('%H:%M')}")
+    click.echo(f"   Duration: {entry_to_edit.duration_hours():.2f}h")
+    click.echo(f"   Description: {entry_to_edit.description}")
+    
+    click.echo("\nEnter new values (press Enter to keep current value):")
+    
+    # Get new values
+    new_date_str = click.prompt("Date (YYYY-MM-DD)", default=entry_to_edit.start_time.strftime('%Y-%m-%d'))
+    new_start_str = click.prompt("Start time (HH:MM)", default=entry_to_edit.start_time.strftime('%H:%M'))
+    new_end_str = click.prompt("End time (HH:MM)", default=entry_to_edit.end_time.strftime('%H:%M'))
+    new_description = click.prompt("Description", default=entry_to_edit.description)
+    
+    try:
+        # Parse new values
+        new_date = datetime.strptime(new_date_str, '%Y-%m-%d').date()
+        start_hour, start_min = map(int, new_start_str.split(':'))
+        end_hour, end_min = map(int, new_end_str.split(':'))
+        
+        new_start_time = datetime.combine(new_date, time(start_hour, start_min))
+        new_end_time = datetime.combine(new_date, time(end_hour, end_min))
+        
+        # Handle next day case
+        if new_end_time <= new_start_time:
+            new_end_time += timedelta(days=1)
+        
+        # Update the entry
+        if manager.update_entry_by_id(entry_id, new_start_time, new_end_time, new_description):
+            new_duration = (new_end_time - new_start_time).total_seconds() / 3600
+            click.echo(f"\n✅ Entry updated successfully:")
+            click.echo(f"   Date: {new_date}")
+            click.echo(f"   Time: {new_start_str} - {new_end_str}")
+            click.echo(f"   Duration: {new_duration:.2f}h")
+            click.echo(f"   Description: {new_description}")
+        else:
+            click.echo("❌ Failed to update entry")
+            
+    except (ValueError, IndexError) as e:
+        click.echo(f"❌ Invalid input: {str(e)}")
+
+@cli.command()
 def summary():
     """Show summary of current month"""
     manager = TimesheetManager()
@@ -328,6 +417,39 @@ def summary():
         duration = manager.get_current_session_duration()
         hours = duration / 60
         click.echo(f"\n🟢 Current session: {hours:.2f} hours ({duration} minutes)")
+
+@cli.command()
+def web():
+    """Launch the web interface"""
+    try:
+        # Check if Flask is installed
+        import flask
+        click.echo("🌐 Starting web interface...")
+        click.echo("   URL: http://localhost:5000")
+        click.echo("   Press Ctrl+C to stop")
+        
+        # Run the web app
+        from web_app import app
+        app.run(debug=False, host='0.0.0.0', port=5000)
+        
+    except ImportError:
+        click.echo("❌ Flask is not installed. Install with: pip install flask")
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Error starting web interface: {str(e)}")
+        sys.exit(1)
+
+@cli.command()
+def migrate():
+    """Migrate existing JSON data to SQLite database"""
+    manager = TimesheetManager()
+    click.echo("✅ Migration complete! Your data is now stored in SQLite database.")
+    click.echo("   Database file: timesheet.db")
+    
+    # Show stats
+    stats = manager.get_stats()
+    click.echo(f"   Total entries: {stats['total_entries']}")
+    click.echo(f"   Total hours: {stats['total_hours']}")
 
 if __name__ == '__main__':
     cli()

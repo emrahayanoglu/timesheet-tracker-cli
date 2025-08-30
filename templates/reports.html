@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - Timesheet Tracker{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-chart-bar me-2"></i>Reports
+            </h1>
+            <div class="btn-group">
+                <a href="{{ url_for('reports', year=year, month=month-1 if month > 1 else 12, 
+                                    **({'year': year-1} if month == 1 else {})) }}" 
+                   class="btn btn-outline-primary">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+                <button class="btn btn-primary" disabled>
+                    {{ month_name }} {{ year }}
+                </button>
+                <a href="{{ url_for('reports', year=year, month=month+1 if month < 12 else 1,
+                                    **({'year': year+1} if month == 12 else {})) }}" 
+                   class="btn btn-outline-primary">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <i class="fas fa-clock fa-2x text-primary mb-2"></i>
+                <h3 class="text-primary">{{ "%.1f"|format(total_hours) }}</h3>
+                <p class="mb-0">Total Hours</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <i class="fas fa-calendar-check fa-2x text-success mb-2"></i>
+                <h3 class="text-success">{{ working_days }}</h3>
+                <p class="mb-0">Working Days</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <i class="fas fa-chart-line fa-2x text-info mb-2"></i>
+                <h3 class="text-info">{{ "%.1f"|format(avg_hours_per_day) }}</h3>
+                <p class="mb-0">Avg Hours/Day</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <i class="fas fa-list fa-2x text-warning mb-2"></i>
+                <h3 class="text-warning">{{ entries|length }}</h3>
+                <p class="mb-0">Total Entries</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>Daily Hours
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="dailyHoursChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>Weekly Distribution
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="weeklyChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detailed Entries -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>Detailed Entries
+                </h5>
+                <button class="btn btn-success btn-sm" onclick="generatePDF()">
+                    <i class="fas fa-file-pdf me-2"></i>Generate PDF
+                </button>
+            </div>
+            <div class="card-body">
+                {% if entries %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Start Time</th>
+                                    <th>End Time</th>
+                                    <th>Duration</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in entries %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ entry.start_time.strftime('%Y-%m-%d') }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ entry.start_time.strftime('%A') }}</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">
+                                                {{ entry.start_time.strftime('%H:%M') }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">
+                                                {{ entry.end_time.strftime('%H:%M') if entry.end_time else 'N/A' }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-primary">
+                                                {{ "%.2f"|format(entry.duration_hours()) }}h
+                                            </span>
+                                            <br>
+                                            <small class="text-muted">{{ entry.duration_minutes() }} min</small>
+                                        </td>
+                                        <td>
+                                            {% if entry.description %}
+                                                {{ entry.description }}
+                                            {% else %}
+                                                <small class="text-muted">No description</small>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Summary at bottom -->
+                    <div class="mt-3 p-3 bg-light rounded">
+                        <div class="row text-center">
+                            <div class="col-md-4">
+                                <h5 class="text-primary">{{ "%.2f"|format(total_hours) }} hours</h5>
+                                <small class="text-muted">Total for {{ month_name }}</small>
+                            </div>
+                            <div class="col-md-4">
+                                <h5 class="text-success">{{ working_days }} days</h5>
+                                <small class="text-muted">Days worked</small>
+                            </div>
+                            <div class="col-md-4">
+                                <h5 class="text-info">{{ "%.1f"|format(avg_hours_per_day) }} hours</h5>
+                                <small class="text-muted">Average per day</small>
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-chart-bar fa-4x text-muted mb-3"></i>
+                        <h4 class="text-muted">No data for {{ month_name }} {{ year }}</h4>
+                        <p class="text-muted">Start tracking your time to see reports here.</p>
+                        <a href="{{ url_for('add_entry') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Add Your First Entry
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Prepare data for charts
+const dailyData = {{ daily_summary | tojson }};
+const monthYear = "{{ month_name }} {{ year }}";
+
+// Daily Hours Chart
+const dailyCtx = document.getElementById('dailyHoursChart').getContext('2d');
+const dailyLabels = Object.keys(dailyData).sort((a, b) => parseInt(a) - parseInt(b));
+const dailyValues = dailyLabels.map(day => dailyData[day]);
+
+new Chart(dailyCtx, {
+    type: 'bar',
+    data: {
+        labels: dailyLabels.map(day => `Day ${day}`),
+        datasets: [{
+            label: 'Hours Worked',
+            data: dailyValues,
+            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: 'Hours'
+                }
+            }
+        },
+        plugins: {
+            title: {
+                display: true,
+                text: `Daily Hours - ${monthYear}`
+            }
+        }
+    }
+});
+
+// Weekly Distribution Chart
+const weeklyCtx = document.getElementById('weeklyChart').getContext('2d');
+
+// Calculate weekly totals
+const weekly = [0, 0, 0, 0, 0]; // Week 1-5
+{% for entry in entries %}
+    {
+        const day = {{ entry.start_time.day }};
+        const weekIndex = Math.floor((day - 1) / 7);
+        if (weekIndex < 5) {
+            weekly[weekIndex] += {{ entry.duration_hours() }};
+        }
+    }
+{% endfor %}
+
+new Chart(weeklyCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'],
+        datasets: [{
+            data: weekly,
+            backgroundColor: [
+                'rgba(255, 99, 132, 0.6)',
+                'rgba(54, 162, 235, 0.6)',
+                'rgba(255, 205, 86, 0.6)',
+                'rgba(75, 192, 192, 0.6)',
+                'rgba(153, 102, 255, 0.6)'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            title: {
+                display: true,
+                text: `Weekly Distribution - ${monthYear}`
+            }
+        }
+    }
+});
+
+function generatePDF() {
+    const reportYear = {{ year }};
+    const reportMonth = {{ month }};
+    
+    // Show loading state
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating...';
+    button.disabled = true;
+    
+    // Create a temporary link to download the PDF
+    const downloadUrl = `/api/report/pdf?year=${reportYear}&month=${reportMonth}`;
+    
+    fetch(downloadUrl)
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => Promise.reject(err));
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            // Create download link
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `timesheet_{{ month_name.lower() }}_{{ year }}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            showAlert('PDF report generated and downloaded successfully!', 'success');
+        })
+        .catch(error => {
+            console.error('Error generating PDF:', error);
+            if (error.message) {
+                showAlert(error.message, 'danger');
+            } else {
+                showAlert('Error generating PDF report. Please try again.', 'danger');
+            }
+        })
+        .finally(() => {
+            // Restore button state
+            button.innerHTML = originalText;
+            button.disabled = false;
+        });
+}
+</script>
+{% endblock %}
