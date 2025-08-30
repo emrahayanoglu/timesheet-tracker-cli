@@ -287,11 +287,11 @@ def api_day_details(date_str):
                 'start_time': entry.start_time.isoformat(),
                 'end_time': entry.end_time.isoformat() if entry.end_time else None,
                 'description': entry.description,
-                'duration_hours': entry.duration_hours
+                'duration_hours': entry.duration_hours()
             }
             entries_data.append(entry_data)
-            if entry.duration_hours:
-                total_hours += entry.duration_hours
+            if entry.duration_hours():
+                total_hours += entry.duration_hours()
         
         return jsonify({
             'date': date_str,
